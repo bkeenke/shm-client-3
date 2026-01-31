@@ -44,6 +44,7 @@
     "telegramAuth": "Telegram authorization",
     "telegramAuthError": "Failed to authorize via Telegram",
     "loginWithTelegram": "Login with Telegram",
+    "useLoginPassword": "Use login and password",
     "fillAllFields": "Fill in all fields",
     "passwordsMismatch": "Passwords do not match",
     "passwordAuthDisabled": "Password login is disabled. Use Passkey."

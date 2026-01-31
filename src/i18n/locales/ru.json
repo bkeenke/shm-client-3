@@ -44,6 +44,7 @@
     "telegramAuth": "Авторизация через Telegram",
     "telegramAuthError": "Не удалось авторизоваться через Telegram",
     "loginWithTelegram": "Войти через Telegram",
+    "useLoginPassword": "Использовать логин и пароль",
     "fillAllFields": "Заполните все поля",
     "passwordsMismatch": "Пароли не совпадают",
     "passwordAuthDisabled": "Вход по паролю отключён. Используйте Passkey."

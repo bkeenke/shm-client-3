@@ -68,6 +68,7 @@ export default function Login() {
   const [isInsideTelegramWebApp, setIsInsideTelegramWebApp] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
   const [otpToken, setOtpToken] = useState('');
+  const [showLoginForm, setShowLoginForm] = useState(false);
   const { setUser, setTelegramPhoto } = useStore();
   const { t } = useTranslation();
   const isWebAuthnSupported = !!window.PublicKeyCredential;
@@ -291,6 +292,32 @@ export default function Login() {
             </Text>
           </div>
 
+          {/* WebApp: показываем сначала только кнопку Telegram */}
+          {hasTelegramWebAppAuth && !showLoginForm && (
+            <>
+              <Button
+                color="blue"
+                leftSection={<IconBrandTelegram size={18} />}
+                onClick={handleTelegramWebAppAuth}
+                fullWidth
+                loading={loading}
+              >
+                {t('auth.loginWithTelegram')}
+              </Button>
+
+              <Divider label={t('common.or')} labelPosition="center" />
+
+              <Button
+                variant="light"
+                onClick={() => setShowLoginForm(true)}
+                fullWidth
+              >
+                {t('auth.useLoginPassword')}
+              </Button>
+            </>
+          )}
+
+          {/* Виджет Telegram (не в WebApp) */}
           {hasTelegramWidget && (
             <>
               <Center>
@@ -306,84 +333,91 @@ export default function Login() {
             </>
           )}
 
-          <form onSubmit={handleSubmit}>
-            <Stack gap="sm">
-              <TextInput
-                label={t('auth.loginLabel')}
-                placeholder={t('auth.loginPlaceholder')}
-                value={formData.login}
-                onChange={(e) => setFormData({ ...formData, login: e.target.value })}
-                autoComplete="username"
-                name="username"
-              />
-              <PasswordInput
-                label={t('auth.passwordLabel')}
-                placeholder={t('auth.passwordPlaceholder')}
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                name="password"
-              />
-              {mode === 'register' && (
-                <PasswordInput
-                  label={t('auth.confirmPasswordLabel')}
-                  placeholder={t('auth.confirmPasswordPlaceholder')}
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  autoComplete="new-password"
-                  name="confirm-password"
-                />
-              )}
-              <Button
-                type="submit"
-                leftSection={mode === 'login' ? <IconLogin size={18} /> : <IconUserPlus size={18} />}
-                loading={loading}
-              >
-                {mode === 'login' ? t('auth.login') : t('auth.register')}
-              </Button>
-              {mode === 'login' && isWebAuthnSupported && hasTelegramWidget && (
-                <Button
-                  variant="light"
-                  leftSection={<IconFingerprint size={18} />}
-                  loading={passkeyLoading}
-                  onClick={handlePasskeyAuth}
-                >
-                  {t('passkey.loginWithPasskey')}
-                </Button>
-              )}
-            </Stack>
-          </form>
-
-          <Text size="sm" ta="center">
-            {mode === 'login' ? (
-              <>
-                {t('auth.noAccount')}{' '}
-                <Text component="span" c="blue" style={{ cursor: 'pointer' }} onClick={() => setMode('register')}>
-                  {t('auth.register')}
-                </Text>
-              </>
-            ) : (
-              <>
-                {t('auth.hasAccount')}{' '}
-                <Text component="span" c="blue" style={{ cursor: 'pointer' }} onClick={() => setMode('login')}>
-                  {t('auth.login')}
-                </Text>
-              </>
-            )}
-          </Text>
-
-          {hasTelegramWebAppAuth && (
+          {/* Форма логина/регистрации (не в WebApp или после нажатия кнопки) */}
+          {(!hasTelegramWebAppAuth || showLoginForm) && (
             <>
-              <Divider />
-              <Button
-                variant="outline"
-                color="blue"
-                leftSection={<IconBrandTelegram size={18} />}
-                onClick={handleTelegramWebAppAuth}
-                fullWidth
-              >
-                {t('auth.loginWithTelegram')}
-              </Button>
+              <form onSubmit={handleSubmit}>
+                <Stack gap="sm">
+                  <TextInput
+                    label={t('auth.loginLabel')}
+                    placeholder={t('auth.loginPlaceholder')}
+                    value={formData.login}
+                    onChange={(e) => setFormData({ ...formData, login: e.target.value })}
+                    autoComplete="username"
+                    name="username"
+                  />
+                  <PasswordInput
+                    label={t('auth.passwordLabel')}
+                    placeholder={t('auth.passwordPlaceholder')}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    name="password"
+                  />
+                  {mode === 'register' && (
+                    <PasswordInput
+                      label={t('auth.confirmPasswordLabel')}
+                      placeholder={t('auth.confirmPasswordPlaceholder')}
+                      value={formData.confirmPassword}
+                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                      autoComplete="new-password"
+                      name="confirm-password"
+                    />
+                  )}
+                  <Button
+                    type="submit"
+                    leftSection={mode === 'login' ? <IconLogin size={18} /> : <IconUserPlus size={18} />}
+                    loading={loading}
+                  >
+                    {mode === 'login' ? t('auth.login') : t('auth.register')}
+                  </Button>
+                  {mode === 'login' && isWebAuthnSupported && hasTelegramWidget && (
+                    <Button
+                      variant="light"
+                      leftSection={<IconFingerprint size={18} />}
+                      loading={passkeyLoading}
+                      onClick={handlePasskeyAuth}
+                    >
+                      {t('passkey.loginWithPasskey')}
+                    </Button>
+                  )}
+                </Stack>
+              </form>
+
+              <Text size="sm" ta="center">
+                {mode === 'login' ? (
+                  <>
+                    {t('auth.noAccount')}{' '}
+                    <Text component="span" c="blue" style={{ cursor: 'pointer' }} onClick={() => setMode('register')}>
+                      {t('auth.register')}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    {t('auth.hasAccount')}{' '}
+                    <Text component="span" c="blue" style={{ cursor: 'pointer' }} onClick={() => setMode('login')}>
+                      {t('auth.login')}
+                    </Text>
+                  </>
+                )}
+              </Text>
+
+              {/* Кнопка Telegram внизу формы (в WebApp) */}
+              {hasTelegramWebAppAuth && showLoginForm && (
+                <>
+                  <Divider label={t('common.or')} labelPosition="center" />
+                  <Button
+                    variant="outline"
+                    color="blue"
+                    leftSection={<IconBrandTelegram size={18} />}
+                    onClick={handleTelegramWebAppAuth}
+                    fullWidth
+                    loading={loading}
+                  >
+                    {t('auth.loginWithTelegram')}
+                  </Button>
+                </>
+              )}
             </>
           )}
         </Stack>
