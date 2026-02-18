@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card, Text, Stack, Button, TextInput, PasswordInput, Divider, Title, Center, Modal, Group } from '@mantine/core';
-import { IconLogin, IconUserPlus, IconFingerprint, IconShieldLock, IconBrandTelegram } from '@tabler/icons-react';
+import { IconLogin, IconUserPlus, IconFingerprint, IconShieldLock, IconBrandTelegram, IconMailForward } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
-import { auth, passkeyApi } from '../api/client';
+import { auth, passkeyApi, userApi } from '../api/client';
 import { setCookie } from '../api/cookie';
 import { useStore } from '../store/useStore';
 import TelegramLoginButton, { TelegramUser } from '../components/TelegramLoginButton';
@@ -35,10 +35,12 @@ export default function Login() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
-  const [formData, setFormData] = useState({ login: '', password: '', confirmPassword: '' });
+  const [formData, setFormData] = useState({ login: '', password: '', confirmPassword: '', login_or_email: '' });
   const [showOtp, setShowOtp] = useState(false);
   const [otpToken, setOtpToken] = useState('');
   const [showLoginForm, setShowLoginForm] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const { setUser, setTelegramPhoto } = useStore();
   const { t } = useTranslation();
   const isWebAuthnSupported = !!window.PublicKeyCredential;
@@ -194,6 +196,39 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResetPassword = async () => {
+    if (!formData.login_or_email) {
+      notifications.show({ title: t('common.error'), message: t('auth.resetEnterLogin'), color: 'red' });
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const loginResponse = await userApi.resetPassword({ login: formData.login_or_email });
+      const loginMsg = loginResponse.data?.data?.[0]?.msg || loginResponse.data?.data?.msg;
+      if (loginMsg === 'Successful') {
+        notifications.show({ title: t('common.success'), message: t('auth.resetSuccess'), color: 'green' });
+        setShowResetPassword(false);
+        setResetLoading(false);
+        return;
+      }
+
+      const emailResponse = await userApi.resetPassword({ email: formData.login_or_email });
+      const emailMsg = emailResponse.data?.data?.[0]?.msg || emailResponse.data?.data?.msg;
+      if (emailMsg === 'Successful') {
+        notifications.show({ title: t('common.success'), message: t('auth.resetSuccess'), color: 'green' });
+        setShowResetPassword(false);
+        setResetLoading(false);
+        return;
+      }
+
+      notifications.show({ title: t('common.error'), message: t('auth.resetNotFound'), color: 'red' });
+    } catch {
+      notifications.show({ title: t('common.error'), message: t('auth.resetNotFound'), color: 'red' });
+    }
+    setResetLoading(false);
   };
 
   const handlePasskeyAuth = async () => {
@@ -369,6 +404,14 @@ export default function Login() {
                 )}
               </Text>
 
+              {mode === 'login' && (
+                <Text size="sm" ta="center">
+                  <Text component="span" c="blue" style={{ cursor: 'pointer' }} onClick={() => setShowResetPassword(true)}>
+                    {t('auth.forgotPassword')}
+                  </Text>
+                </Text>
+              )}
+
               {hasTelegramWebAppAuth && showLoginForm && (
                 <>
                   <Divider label={t('common.or')} labelPosition="center" />
@@ -426,6 +469,43 @@ export default function Login() {
               disabled={!otpToken}
             >
               {t('otp.verify')}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={showResetPassword}
+        onClose={() => {
+          setShowResetPassword(false);
+          setResetLoading(false);
+        }}
+        title={t('auth.resetPasswordTitle')}
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">{t('auth.resetPasswordDescription')}</Text>
+          <TextInput
+            label={t('auth.loginOrEmail')}
+            placeholder={t('auth.loginOrEmailPlaceholder')}
+            value={formData.login_or_email}
+            onChange={(e) => setFormData({ ...formData, login_or_email: e.target.value })}
+            autoFocus
+          />
+          <Group justify="flex-end" gap="sm">
+            <Button variant="default" onClick={() => {
+              setShowResetPassword(false);
+              setResetLoading(false);
+            }}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              leftSection={<IconMailForward size={16} />}
+              onClick={handleResetPassword}
+              loading={resetLoading}
+              disabled={!formData.login_or_email}
+            >
+              {t('auth.resetPasswordSend')}
             </Button>
           </Group>
         </Stack>

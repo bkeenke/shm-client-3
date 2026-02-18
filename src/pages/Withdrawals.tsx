@@ -127,7 +127,7 @@ export default function Withdrawals() {
                         )}
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text size="sm" fw={500} c="red">-{w.total} ₽</Text>
+                        <Text size="sm" fw={500} w={80} c="red">-{w.total} ₽</Text>
                       </Table.Td>
                       <Table.Td>
                         <Badge variant="light" color="blue">

@@ -47,7 +47,16 @@
     "useLoginPassword": "Use login and password",
     "fillAllFields": "Fill in all fields",
     "passwordsMismatch": "Passwords do not match",
-    "passwordAuthDisabled": "Password login is disabled. Use Passkey."
+    "passwordAuthDisabled": "Password login is disabled. Use Passkey.",
+    "forgotPassword": "Forgot password?",
+    "resetPasswordTitle": "Reset password",
+    "resetPasswordDescription": "Enter your login or email. A password reset link will be sent to your email.",
+    "loginOrEmail": "Login or Email",
+    "loginOrEmailPlaceholder": "Enter login or email",
+    "resetPasswordSend": "Send",
+    "resetSuccess": "Password reset request sent. Check your email.",
+    "resetNotFound": "User with this login or email not found",
+    "resetEnterLogin": "Enter login or email"
   },
   "nav": {
     "home": "Home",

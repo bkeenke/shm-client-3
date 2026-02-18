@@ -122,6 +122,7 @@ export const userApi = {
   getProfile: () => api.get('/user'),
   updateProfile: (data: Record<string, unknown>) => api.post('/user', data),
   changePassword: (password: string) => api.post('/user/passwd', { password }),
+  resetPassword: (params: { login?: string; email?: string }) => api.post('/user/passwd/reset', params),
   getServices: () => api.get('/user/service', { params: { limit: 1000 } }),
   stopService: (userServiceId: number) => api.post('/user/service/stop', { user_service_id: userServiceId }),
   changeService: (userServiceId: number, serviceId: number, finish_active: number) => api.post('/user/service/change', { user_service_id: userServiceId, service_id: serviceId, finish_active: finish_active }),

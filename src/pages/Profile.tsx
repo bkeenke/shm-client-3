@@ -234,7 +234,7 @@ export default function Profile() {
           </Avatar>
           <div>
             <Text fw={500} size="lg">{profile.full_name || profile.login || t('profile.user')}</Text>
-            <Text size="sm" c="dimmed">{profile.login || '-'}</Text>
+            <Text size="sm" c="dimmed">ID: {profile.user_id} - {profile.login || '-'}</Text>
           </div>
         </Group>
       </Card>
