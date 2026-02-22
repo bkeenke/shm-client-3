@@ -9,8 +9,8 @@ import { IconSun, IconMoon, IconLogout, IconHeadset } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next';
 import { useStore } from './store/useStore';
 import { NAV_ITEMS } from './constants/navigation';
-import { auth } from './api/client';
 import { getCookie, removeCookie, parseAndSavePartnerId, parseAndSaveSessionId } from './api/cookie';
+import { useCurrentUser } from './api/hooks/auth/auth.hooks';
 import { config } from './config';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { hasTelegramWebAppAutoAuth, isTelegramWebApp } from './constants/webapp';
@@ -23,7 +23,6 @@ import Payments from './pages/Payments';
 import Withdrawals from './pages/Withdrawals';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
-import Tickets from './pages/Tickets';
 
 const theme = createTheme({
   primaryColor: 'blue',
@@ -253,29 +252,27 @@ function AppContent() {
     };
   }, [location.pathname, navigate, isTelegramWebApp]);
 
+  const { data: currentUser, isLoading: userLoading, error: userError } = useCurrentUser();
+
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = getCookie();
+    if (!getCookie()) {
+      setIsLoading(false);
+      return;
+    }
 
-      if (!token) {
-        setIsLoading(false);
-        return;
-      }
+    if (userError) {
+      removeCookie();
+      setIsLoading(false);
+      return;
+    }
 
-      try {
-        const response = await auth.getCurrentUser();
-        const responseData = response.data.data;
-        const userData = Array.isArray(responseData) ? responseData[0] : responseData;
-        setUser(userData);
-      } catch {
-        removeCookie();
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [setUser, setIsLoading]);
+    if (!userLoading && currentUser) {
+      setUser(currentUser);
+      setIsLoading(false);
+    } else if (!userLoading && !currentUser) {
+      setIsLoading(false);
+    }
+  }, [currentUser, userLoading, userError, setUser, setIsLoading]);
 
   if (isLoading) {
     return (
@@ -296,7 +293,6 @@ function AppContent() {
           <Box px="md">
             <Routes>
             <Route path="/services" element={<Services />} />
-            <Route path="/tickets" element={<Tickets />} />
             <Route path="/payments" element={<Payments />} />
             <Route path="/withdrawals" element={<Withdrawals />} />
             <Route path="*" element={<Profile />} />
@@ -388,7 +384,6 @@ function AppContent() {
       <AppShell.Main>
         <Routes>
           <Route path="/services" element={<Services />} />
-          <Route path="/tickets" element={<Tickets />} />
           <Route path="/payments" element={<Payments />} />
           <Route path="/withdrawals" element={<Withdrawals />} />
           <Route path="*" element={<Profile />} />

@@ -3,73 +3,51 @@ import { Card, Text, Stack, Group, Button, TextInput, Avatar, Title, Modal, Load
 import { IconUser, IconPhone, IconBrandTelegram, IconWallet, IconCreditCard, IconChevronDown, IconChevronUp, IconMail, IconAlertCircle } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
-import { userApi, telegramApi } from '../api/client';
 import PayModal from '../components/PayModal';
 import PromoModal from '../components/PromoModal';
-import SecuritySettings from '../components/SecuritySettings';
+import SecuritySettings from '../components/security/SecuritySettings';
 import { useStore } from '../store/useStore';
+import { useProfile, useUpdateProfile, useSetEmail, useSendVerifyCode, useConfirmEmail } from '../api/hooks/user/user.hooks';
+import { useTelegramSettings, useUpdateTelegramSettings } from '../api/hooks/telegram/telegram.hooks';
+import { usePaymentForecast } from '../api/hooks/pay/pay.hooks';
 
 const RESEND_COOLDOWN_MS = 3 * 60 * 1000;
 const RESEND_STORAGE_KEY = 'email_verify_last_sent';
-interface UserProfile {
-  user_id: number;
-  login: string;
-  full_name?: string;
-  phone?: string;
-  email?: string;
-  email_verified?: number;
-  balance: number;
-  credit?: number;
-  bonus?: number;
-  gid: number;
-  telegram_user_id?: number;
-}
-
-interface ForecastItem {
-  name: string;
-  cost: number;
-  total: number;
-  status: string;
-  service_id: string;
-  user_service_id: string;
-  months: number;
-  discount: number;
-  qnt: number;
-}
-
-interface ForecastData {
-  balance: number;
-  bonuses: number;
-  total: number;
-  items: ForecastItem[];
-}
 
 export default function Profile() {
   const { telegramPhoto } = useStore();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { colorScheme } = useMantineColorScheme();
+  const { t } = useTranslation();
+
+  // Data hooks
+  const { data: profile, isLoading: profileLoading, refetch: refetchProfile } = useProfile();
+  const { data: telegramSettings } = useTelegramSettings();
+  const { data: forecast } = usePaymentForecast();
+
+  // Mutation hooks
+  const updateProfile = useUpdateProfile();
+  const updateTelegram = useUpdateTelegramSettings();
+  const setEmail = useSetEmail();
+  const sendVerifyCode = useSendVerifyCode();
+  const confirmEmail = useConfirmEmail();
+
+  // UI state
   const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState({ full_name: '', phone: '', email: '', email_verified: 0 });
-  const [telegramUsername, setTelegramUsername] = useState<string | null>(null);
+  const [formData, setFormData] = useState({ full_name: '', phone: '' });
   const [payModalOpen, setPayModalOpen] = useState(false);
   const [promoModalOpen, setPromoModalOpen] = useState(false);
   const [telegramModalOpen, setTelegramModalOpen] = useState(false);
   const [telegramInput, setTelegramInput] = useState('');
-  const [telegramSaving, setTelegramSaving] = useState(false);
-  const [forecast, setForecast] = useState<ForecastData | null>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailInput, setEmailInput] = useState('');
-  const [emailSaving, setEmailSaving] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [emailVerified, setEmailVerified] = useState(false);
   const [verifyModalOpen, setVerifyModalOpen] = useState(false);
   const [verifyCode, setVerifyCode] = useState('');
-  const [verifySending, setVerifySending] = useState(false);
-  const [verifyConfirming, setVerifyConfirming] = useState(false);
   const [forecastOpen, setForecastOpen] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const { colorScheme } = useMantineColorScheme();
-  const { t } = useTranslation();
+
+  const telegramUsername = telegramSettings?.username ?? null;
+  const userEmail = profile?.email ?? null;
+  const emailVerified = profile?.email_verified === 1;
 
   const updateCooldown = useCallback(() => {
     const lastSent = localStorage.getItem(RESEND_STORAGE_KEY);
@@ -89,64 +67,32 @@ export default function Profile() {
   }, [updateCooldown]);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const response = await userApi.getProfile();
-        const responseData = response.data.data;
-        const data = Array.isArray(responseData) ? responseData[0] : responseData;
-        setProfile(data);
-        setFormData({
-          full_name: data.full_name || '',
-          phone: data.phone || '',
-          email: data.email || '',
-          email_verified: data.email_verified || 0,
-        });
-        try {
-          const telegramResponse = await telegramApi.getSettings();
-          setTelegramUsername(telegramResponse.data.username || null);
-        } catch {
-        }
-        setUserEmail(data.email || null);
-        setEmailVerified(data.email_verified === 1);
-        try {
-          const forecastResponse = await userApi.getForecast();
-          const forecastData = forecastResponse.data.data;
-          if (Array.isArray(forecastData) && forecastData.length > 0) {
-            setForecast(forecastData[0]);
-          }
-        } catch {
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProfile();
-  }, []);
-
-  const handleSave = async () => {
-    try {
-      await userApi.updateProfile(formData);
-      setProfile((prev) => prev ? { ...prev, ...formData } : null);
-      setEditing(false);
-      notifications.show({
-        title: t('common.success'),
-        message: t('profile.profileUpdated'),
-        color: 'green',
-      });
-    } catch {
-      notifications.show({
-        title: t('common.error'),
-        message: t('profile.profileUpdateError'),
-        color: 'red',
+    if (profile) {
+      setFormData({
+        full_name: profile.full_name || '',
+        phone: profile.phone || '',
       });
     }
-  };
+  }, [profile]);
 
-  const refreshProfile = async () => {
-    const profileResponse = await userApi.getProfile();
-    const profileData = profileResponse.data.data;
-    const data = Array.isArray(profileData) ? profileData[0] : profileData;
-    setProfile(data);
+  const handleSave = () => {
+    updateProfile.mutate(formData, {
+      onSuccess: () => {
+        setEditing(false);
+        notifications.show({
+          title: String(t('common.success')),
+          message: String(t('profile.profileUpdated')),
+          color: 'green',
+        });
+      },
+      onError: () => {
+        notifications.show({
+          title: String(t('common.error')),
+          message: String(t('profile.profileUpdateError')),
+          color: 'red',
+        });
+      },
+    });
   };
 
   const openTelegramModal = () => {
@@ -154,26 +100,27 @@ export default function Profile() {
     setTelegramModalOpen(true);
   };
 
-  const handleSaveTelegram = async () => {
-    setTelegramSaving(true);
-    try {
-      await telegramApi.updateSettings({ username: telegramInput.trim().replace('@', '') });
-      setTelegramUsername(telegramInput.trim().replace('@', '') || null);
-      setTelegramModalOpen(false);
-      notifications.show({
-        title: t('common.success'),
-        message: t('profile.telegramSaved'),
-        color: 'green',
-      });
-    } catch {
-      notifications.show({
-        title: t('common.error'),
-        message: t('profile.telegramSaveError'),
-        color: 'red',
-      });
-    } finally {
-      setTelegramSaving(false);
-    }
+  const handleSaveTelegram = () => {
+    updateTelegram.mutate(
+      { username: telegramInput.trim().replace('@', '') },
+      {
+        onSuccess: () => {
+          setTelegramModalOpen(false);
+          notifications.show({
+            title: String(t('common.success')),
+            message: String(t('profile.telegramSaved')),
+            color: 'green',
+          });
+        },
+        onError: () => {
+          notifications.show({
+            title: String(t('common.error')),
+            message: String(t('profile.telegramSaveError')),
+            color: 'red',
+          });
+        },
+      }
+    );
   };
 
   const openEmailModal = () => {
@@ -187,134 +134,124 @@ export default function Profile() {
 
   const getEmailErrorMessage = (serverMsg: string): string => {
     const errorMap: Record<string, string> = {
-      'is not email': t('profile.invalidEmail'),
-      'Email mismatch. Use the email shown in your profile.': t('profile.emailMismatch'),
-      'Invalid code': t('profile.invalidCode'),
-      'Code expired': t('profile.codeExpired'),
+      'is not email': String(t('profile.invalidEmail')),
+      'Email mismatch. Use the email shown in your profile.': String(t('profile.emailMismatch')),
+      'Invalid code': String(t('profile.invalidCode')),
+      'Code expired': String(t('profile.codeExpired')),
     };
     return errorMap[serverMsg] || serverMsg;
   };
 
-  const handleSaveEmail = async () => {
+  const handleSaveEmail = () => {
     const email = emailInput.trim();
 
     if (!isValidEmail(email)) {
       notifications.show({
-        title: t('common.error'),
-        message: t('profile.invalidEmail'),
+        title: String(t('common.error')),
+        message: String(t('profile.invalidEmail')),
         color: 'red',
       });
       return;
     }
 
-    setEmailSaving(true);
-    try {
-      const response = await userApi.setEmail(email);
-      const data = response.data?.data;
-
-      if (Array.isArray(data) && data[0]?.msg && data[0].msg !== 'Successful') {
+    setEmail.mutate(email, {
+      onSuccess: (response) => {
+        const data = response.data;
+        if (Array.isArray(data) && data[0]?.msg && data[0].msg !== 'Successful') {
+          notifications.show({
+            title: String(t('common.error')),
+            message: getEmailErrorMessage(data[0].msg),
+            color: 'red',
+          });
+          return;
+        }
+        setEmailModalOpen(false);
         notifications.show({
-          title: t('common.error'),
-          message: getEmailErrorMessage(data[0].msg),
+          title: String(t('common.success')),
+          message: String(t('profile.emailSaved')),
+          color: 'green',
+        });
+      },
+      onError: () => {
+        notifications.show({
+          title: String(t('common.error')),
+          message: String(t('profile.emailSaveError')),
           color: 'red',
         });
-        return;
-      }
-
-      setUserEmail(email || null);
-      setEmailModalOpen(false);
-      notifications.show({
-        title: t('common.success'),
-        message: t('profile.emailSaved'),
-        color: 'green',
-      });
-      setEmailVerified(false);
-    } catch {
-      notifications.show({
-        title: t('common.error'),
-        message: t('profile.emailSaveError'),
-        color: 'red',
-      });
-    } finally {
-      setEmailSaving(false);
-    }
+      },
+    });
   };
 
-  const handleSendVerifyCode = async () => {
+  const handleSendVerifyCode = () => {
     if (!userEmail) return;
     if (resendCooldown > 0) return;
 
-    setVerifySending(true);
-    try {
-      const response = await userApi.sendVerifyCode(userEmail);
-      const data = response.data?.data;
+    sendVerifyCode.mutate(userEmail, {
+      onSuccess: (response) => {
+        const data = response.data;
+        if (Array.isArray(data) && data[0]?.msg && data[0].msg !== 'Verification code sent') {
+          notifications.show({
+            title: String(t('common.error')),
+            message: getEmailErrorMessage(data[0].msg),
+            color: 'red',
+          });
+          return;
+        }
 
-      if (Array.isArray(data) && data[0]?.msg && data[0].msg !== 'Verification code sent') {
+        localStorage.setItem(RESEND_STORAGE_KEY, Date.now().toString());
+        updateCooldown();
+
+        setVerifyModalOpen(true);
+        setVerifyCode('');
         notifications.show({
-          title: t('common.error'),
-          message: getEmailErrorMessage(data[0].msg),
+          title: String(t('common.success')),
+          message: String(t('profile.verifyCodeSent')),
+          color: 'green',
+        });
+      },
+      onError: () => {
+        notifications.show({
+          title: String(t('common.error')),
+          message: String(t('profile.verifyCodeError')),
           color: 'red',
         });
-        return;
-      }
-
-      localStorage.setItem(RESEND_STORAGE_KEY, Date.now().toString());
-      updateCooldown();
-
-      setVerifyModalOpen(true);
-      setVerifyCode('');
-      notifications.show({
-        title: t('common.success'),
-        message: t('profile.verifyCodeSent'),
-        color: 'green',
-      });
-    } catch {
-      notifications.show({
-        title: t('common.error'),
-        message: t('profile.verifyCodeError'),
-        color: 'red',
-      });
-    } finally {
-      setVerifySending(false);
-    }
+      },
+    });
   };
 
-  const handleConfirmEmail = async () => {
+  const handleConfirmEmail = () => {
     if (!verifyCode.trim()) return;
 
-    setVerifyConfirming(true);
-    try {
-      const response = await userApi.confirmEmail(verifyCode.trim());
-      const data = response.data?.data;
+    confirmEmail.mutate(verifyCode.trim(), {
+      onSuccess: (response) => {
+        const data = response.data;
+        if (Array.isArray(data) && data[0]?.msg && data[0].msg !== 'Email verified successfully') {
+          notifications.show({
+            title: String(t('common.error')),
+            message: getEmailErrorMessage(data[0].msg),
+            color: 'red',
+          });
+          return;
+        }
 
-      if (Array.isArray(data) && data[0]?.msg && data[0].msg !== 'Email verified successfully') {
+        setVerifyModalOpen(false);
         notifications.show({
-          title: t('common.error'),
-          message: getEmailErrorMessage(data[0].msg),
+          title: String(t('common.success')),
+          message: String(t('profile.emailVerifiedSuccess')),
+          color: 'green',
+        });
+      },
+      onError: () => {
+        notifications.show({
+          title: String(t('common.error')),
+          message: String(t('profile.emailVerifyError')),
           color: 'red',
         });
-        return;
-      }
-
-      setEmailVerified(true);
-      setVerifyModalOpen(false);
-      notifications.show({
-        title: t('common.success'),
-        message: t('profile.emailVerifiedSuccess'),
-        color: 'green',
-      });
-    } catch {
-      notifications.show({
-        title: t('common.error'),
-        message: t('profile.emailVerifyError'),
-        color: 'red',
-      });
-    } finally {
-      setVerifyConfirming(false);
-    }
+      },
+    });
   };
 
-  if (loading || !profile) {
+  if (profileLoading || !profile) {
     return (
       <Center h="50vh">
         <Loader size="lg" />
@@ -360,7 +297,7 @@ export default function Profile() {
           </Group>
           <Collapse in={forecastOpen}>
             <Stack gap="sm" mt="md">
-              {forecast.items.map((item, index) => (
+              {(forecast.items as Array<{ name: string; months: number; qnt: number; total: number; status: string }>).map((item, index) => (
                 <Card
                   key={index}
                   withBorder
@@ -468,7 +405,7 @@ export default function Profile() {
                 size="xs"
                 color="orange"
                 onClick={handleSendVerifyCode}
-                loading={verifySending}
+                loading={sendVerifyCode.isPending}
                 disabled={resendCooldown > 0}
               >
                 {resendCooldown > 0
@@ -529,7 +466,7 @@ export default function Profile() {
       <PromoModal
         opened={promoModalOpen}
         onClose={() => setPromoModalOpen(false)}
-        onSuccess={refreshProfile}
+        onSuccess={refetchProfile}
       />
 
       <Modal
@@ -552,7 +489,7 @@ export default function Profile() {
             <Button variant="light" onClick={() => setTelegramModalOpen(false)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleSaveTelegram} loading={telegramSaving}>
+            <Button onClick={handleSaveTelegram} loading={updateTelegram.isPending}>
               {t('common.save')}
             </Button>
           </Group>
@@ -585,7 +522,7 @@ export default function Profile() {
             <Button variant="light" onClick={() => setEmailModalOpen(false)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleSaveEmail} loading={emailSaving}>
+            <Button onClick={handleSaveEmail} loading={setEmail.isPending}>
               {t('common.save')}
             </Button>
           </Group>
@@ -614,7 +551,7 @@ export default function Profile() {
               variant="subtle"
               size="xs"
               onClick={handleSendVerifyCode}
-              loading={verifySending}
+              loading={sendVerifyCode.isPending}
               disabled={resendCooldown > 0}
             >
               {resendCooldown > 0
@@ -625,7 +562,7 @@ export default function Profile() {
               <Button variant="light" onClick={() => setVerifyModalOpen(false)}>
                 {t('common.cancel')}
               </Button>
-              <Button onClick={handleConfirmEmail} loading={verifyConfirming}>
+              <Button onClick={handleConfirmEmail} loading={confirmEmail.isPending}>
                 {t('profile.confirmEmail')}
               </Button>
             </Group>

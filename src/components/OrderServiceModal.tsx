@@ -1,24 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Stack, Text, Card, Group, Badge, Loader, Center, Button, Paper, Divider, Select, NumberInput, Alert, Checkbox, ScrollArea } from '@mantine/core';
 import { IconArrowLeft, IconCreditCard, IconCheck, IconWallet } from '@tabler/icons-react';
-import { servicesApi, userApi } from '../api/client';
+import { useServicesOrderList, useOrderService, useChangeService } from '../api/hooks/services/services.hooks';
+import { useProfile } from '../api/hooks/user/user.hooks';
+import { usePaySystems } from '../api/hooks/pay/pay.hooks';
+import type { GetServicesForOrderCommand, GetPaysystemsCommand } from '@bkeenke/shm-contract';
 import { notifications } from '@mantine/notifications';
 import { config } from '../config';
 
-interface OrderService {
-  service_id: number;
-  name: string;
-  category: string;
-  cost: number;
-  period: number;
-  descr: string;
-}
-
-interface PaySystem {
-  name: string;
-  shm_url: string;
-}
+type OrderService = GetServicesForOrderCommand.Response[number];
+type PaySystem = GetPaysystemsCommand.Response[number];
 
 interface OrderServiceModalProps {
   opened: boolean;
@@ -57,20 +49,33 @@ export default function OrderServiceModal({
   onChangeSuccess,
 }: OrderServiceModalProps) {
   const { t } = useTranslation();
-  const [services, setServices] = useState<OrderService[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<OrderService | null>(null);
-  const [ordering, setOrdering] = useState(false);
-  const [userBalance, setUserBalance] = useState<number>(0);
-  const [paySystems, setPaySystems] = useState<PaySystem[]>([]);
   const [selectedPaySystem, setSelectedPaySystem] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState<number | string>(0);
-  const [paySystemsLoading, setPaySystemsLoading] = useState(false);
-  const [paySystemsLoaded, setPaySystemsLoaded] = useState(false);
   const [finishAfterActive, setFinishAfterActive] = useState(false);
 
   const isChangeMode = mode === 'change';
   const canDeferChange = isChangeMode && currentService?.status === 'ACTIVE';
+
+  // Fetch services for order
+  const filter = isChangeMode && currentService?.category ? { category: currentService.category } : undefined;
+  const { data: servicesData = [], isLoading: loading } = useServicesOrderList(filter);
+
+  // Filter services in change mode
+  const services = useMemo(() => {
+    if (isChangeMode && currentService?.service_id) {
+      return servicesData.filter((service: OrderService) => service.service_id !== currentService.service_id);
+    }
+    return servicesData;
+  }, [servicesData, isChangeMode, currentService?.service_id]);
+
+  // Fetch user profile for balance (only in order mode)
+  const { data: profileData } = useProfile();
+  const userBalance = profileData?.balance || 0;
+
+  // Fetch pay systems
+  const { data: paySystemsData = [], isLoading: paySystemsLoading } = usePaySystems();
+  const paySystems = paySystemsData as PaySystem[];
 
   useEffect(() => {
     if (opened) {
@@ -80,23 +85,14 @@ export default function OrderServiceModal({
   }, [opened, mode, currentService?.service_id]);
 
   useEffect(() => {
-    if (opened) {
-      fetchServices();
-      if (!isChangeMode) {
-        fetchUserBalance();
-      }
-    }
-  }, [opened, isChangeMode, currentService?.category]);
-
-  useEffect(() => {
     if (selectedService && !isChangeMode) {
       const needToPay = Math.max(0, Math.ceil((selectedService.cost - userBalance) * 100) / 100);
       setPayAmount(needToPay);
-      if (userBalance < selectedService.cost && !paySystemsLoaded) {
-        loadPaySystems();
+      if (userBalance < selectedService.cost && paySystems.length > 0 && !selectedPaySystem) {
+        setSelectedPaySystem(paySystems[0].name);
       }
     }
-  }, [selectedService, userBalance, isChangeMode]);
+  }, [selectedService, userBalance, isChangeMode, paySystems, selectedPaySystem]);
 
   useEffect(() => {
     if (isChangeMode) {
@@ -104,147 +100,104 @@ export default function OrderServiceModal({
     }
   }, [selectedService, isChangeMode]);
 
-  const fetchUserBalance = async () => {
-    try {
-      const response = await userApi.getProfile();
-      const userData = response.data.data?.[0] || response.data.data;
-      setUserBalance(userData?.balance || 0);
-    } catch {
-    }
-  };
+  // Mutations
+  const orderService = useOrderService();
+  const changeService = useChangeService();
+  const ordering = orderService.isPending || changeService.isPending;
 
-  const fetchServices = async () => {
-    setLoading(true);
-    try {
-      const response = await servicesApi.order_list(
-        isChangeMode && currentService?.category ? { category: currentService.category } : undefined
-      );
-      const data: OrderService[] = response.data.data || [];
-      const filtered = isChangeMode && currentService?.service_id
-        ? data.filter(service => service.service_id !== currentService.service_id)
-        : data;
-      setServices(filtered);
-    } catch (error) {
-      notifications.show({
-        title: t('common.error'),
-        message: t('order.loadError'),
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadPaySystems = async () => {
-    if (paySystemsLoaded) return;
-    setPaySystemsLoading(true);
-    try {
-      const response = await userApi.getPaySystems();
-      const data = response.data.data || [];
-      setPaySystems(data);
-      if (data.length > 0) {
-        setSelectedPaySystem(data[0].name);
-      }
-      setPaySystemsLoaded(true);
-    } catch {
-      notifications.show({
-        title: t('common.error'),
-        message: t('payments.paymentSystemsError'),
-        color: 'red',
-      });
-    } finally {
-      setPaySystemsLoading(false);
-    }
-  };
-
-  const handleOrder = async () => {
+  const handleOrder = () => {
     if (!selectedService) return;
 
-    setOrdering(true);
-    try {
-      await servicesApi.order(selectedService.service_id);
-
-      notifications.show({
-        title: t('common.success'),
-        message: t('order.orderSuccess', { name: selectedService.name }),
-        color: 'green',
-      });
-
-      onOrderSuccess?.();
-      handleClose();
-    } catch (error) {
-      notifications.show({
-        title: t('common.error'),
-        message: t('order.orderError'),
-        color: 'red',
-      });
-    } finally {
-      setOrdering(false);
-    }
+    orderService.mutate(
+      selectedService.service_id,
+      {
+        onSuccess: () => {
+          notifications.show({
+            title: String(t('common.success')),
+            message: String(t('order.orderSuccess', { name: selectedService.name })),
+            color: 'green',
+          });
+          onOrderSuccess?.();
+          handleClose();
+        },
+        onError: () => {
+          notifications.show({
+            title: String(t('common.error')),
+            message: String(t('order.orderError')),
+            color: 'red',
+          });
+        },
+      }
+    );
   };
 
-  const handleOrderAndPay = async () => {
+  const handleOrderAndPay = () => {
     if (!selectedService) return;
 
     const paySystem = paySystems.find(ps => ps.name === selectedPaySystem);
     if (!paySystem) {
       notifications.show({
-        title: t('common.error'),
-        message: t('payments.selectPaymentSystem'),
+        title: String(t('common.error')),
+        message: String(t('payments.selectPaymentSystem')),
         color: 'red',
       });
       return;
     }
 
-    setOrdering(true);
-    try {
-      await servicesApi.order(selectedService.service_id);
-      window.open(paySystem.shm_url + payAmount, '_blank');
-
-      notifications.show({
-        title: t('common.success'),
-        message: t('order.orderPaySuccess', { name: selectedService.name }),
-        color: 'green',
-      });
-
-      onOrderSuccess?.();
-      handleClose();
-    } catch (error) {
-      notifications.show({
-        title: t('common.error'),
-        message: t('order.orderError'),
-        color: 'red',
-      });
-    } finally {
-      setOrdering(false);
-    }
+    orderService.mutate(
+      selectedService.service_id,
+      {
+        onSuccess: () => {
+          window.open(paySystem.shm_url + payAmount, '_blank');
+          notifications.show({
+            title: String(t('common.success')),
+            message: String(t('order.orderPaySuccess', { name: selectedService.name })),
+            color: 'green',
+          });
+          onOrderSuccess?.();
+          handleClose();
+        },
+        onError: () => {
+          notifications.show({
+            title: String(t('common.error')),
+            message: String(t('order.orderError')),
+            color: 'red',
+          });
+        },
+      }
+    );
   };
 
-  const handleChange = async () => {
+  const handleChange = () => {
     if (!selectedService || !currentService) return;
 
-    setOrdering(true);
-    try {
-      const finishActive = canDeferChange && finishAfterActive ? 1 : 0;
-      await userApi.changeService(currentService.user_service_id, selectedService.service_id, finishActive);
+    const finishActive = canDeferChange && finishAfterActive ? 1 : 0;
 
-      notifications.show({
-        title: t('common.success'),
-        message: t('services.changeServiceSuccess'),
-        color: 'green',
-      });
-
-      onChangeSuccess?.();
-      handleClose();
-    } catch (error) {
-      notifications.show({
-        title: t('common.error'),
-        message: t('services.changeServiceError'),
-        color: 'red',
-      });
-    } finally {
-      setOrdering(false);
-    }
+    changeService.mutate(
+      {
+        userServiceId: currentService.user_service_id,
+        serviceId: selectedService.service_id,
+        finishActive,
+      },
+      {
+        onSuccess: () => {
+          notifications.show({
+            title: String(t('common.success')),
+            message: String(t('services.changeServiceSuccess')),
+            color: 'green',
+          });
+          onChangeSuccess?.();
+          handleClose();
+        },
+        onError: () => {
+          notifications.show({
+            title: String(t('common.error')),
+            message: String(t('services.changeServiceError')),
+            color: 'red',
+          });
+        },
+      }
+    );
   };
 
   const handleClose = () => {
@@ -276,7 +229,7 @@ export default function OrderServiceModal({
     acc[category].push(service);
     return acc;
   }, {} as Record<string, OrderService[]>);
-  Object.values(groupedServices).forEach(categoryServices => {
+  (Object.values(groupedServices) as OrderService[][]).forEach((categoryServices) => {
     categoryServices.sort((a, b) => a.cost - b.cost);
   });
 
@@ -448,7 +401,7 @@ export default function OrderServiceModal({
         </Center>
       ) : (
         <Stack gap="md">
-          {Object.entries(groupedServices).map(([category, categoryServices]) => (
+          {(Object.entries(groupedServices) as [string, OrderService[]][]).map(([category, categoryServices]) => (
             <div key={category}>
               <Text fw={500} size="sm" c="dimmed" mb="xs">
                 {t(`categories.${category}`)}

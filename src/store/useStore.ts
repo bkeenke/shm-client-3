@@ -18,14 +18,10 @@ interface AppState {
   isAuthenticated: boolean;
   isLoading: boolean;
   telegramPhoto: string | null;
-  hasNewTicketMessages: boolean;
-  lastTicketCheck: number;
 
   setUser: (user: User | null) => void;
   setIsLoading: (loading: boolean) => void;
   setTelegramPhoto: (photo: string | null) => void;
-  setHasNewTicketMessages: (hasNew: boolean) => void;
-  setLastTicketCheck: (timestamp: number) => void;
   logout: () => void;
 }
 
@@ -34,8 +30,6 @@ export const useStore = create<AppState>((set) => ({
   isAuthenticated: false,
   isLoading: true,
   telegramPhoto: localStorage.getItem('shm_telegram_photo'),
-  hasNewTicketMessages: false,
-  lastTicketCheck: parseInt(localStorage.getItem('shm_last_ticket_check') || '0'),
 
   setUser: (user) => set({
     user,
@@ -50,14 +44,9 @@ export const useStore = create<AppState>((set) => ({
     }
     set({ telegramPhoto: photo });
   },
-  setHasNewTicketMessages: (hasNew) => set({ hasNewTicketMessages: hasNew }),
-  setLastTicketCheck: (timestamp) => {
-    localStorage.setItem('shm_last_ticket_check', String(timestamp));
-    set({ lastTicketCheck: timestamp });
-  },
   logout: () => {
     removeCookie();
     localStorage.removeItem('shm_telegram_photo');
-    set({ user: null, isAuthenticated: false, telegramPhoto: null, hasNewTicketMessages: false });
+    set({ user: null, isAuthenticated: false, telegramPhoto: null });
   },
 }));

@@ -3,14 +3,25 @@ import { Card, Text, Stack, Button, TextInput, PasswordInput, Divider, Title, Ce
 import { IconLogin, IconUserPlus, IconFingerprint, IconShieldLock, IconBrandTelegram, IconMailForward, IconLock } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
-import { auth, passkeyApi, userApi } from '../api/client';
-import { setCookie, getResetTokenCookie, removeResetTokenCookie, parseAndSaveResetToken } from '../api/cookie';
+import { getResetTokenCookie, removeResetTokenCookie, parseAndSaveResetToken } from '../api/cookie';
 import { useStore } from '../store/useStore';
 import TelegramLoginButton, { TelegramUser } from '../components/TelegramLoginButton';
 import { config } from '../config';
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { hasTelegramWebAppAutoAuth, hasTelegramWidget, hasTelegramWebAppAuth } from '../constants/webapp';
+import {
+  useLogin,
+  useRegister,
+  useCurrentUser,
+  useTelegramWidgetAuth,
+  useTelegramWebAppAuth,
+  usePasskeyAuthOptions,
+  usePasskeyAuth,
+  useVerifyResetToken,
+  useResetPasswordWithToken,
+  useResetPasswordRequest,
+} from '../api/hooks';
 
 function base64UrlToArrayBuffer(base64url: string): ArrayBuffer {
   const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
@@ -45,10 +56,25 @@ export default function Login() {
   const [showNewPasswordForm, setShowNewPasswordForm] = useState(false);
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [newPasswordData, setNewPasswordData] = useState({ password: '', confirmPassword: '' });
-  const [verifyingToken, setVerifyingToken] = useState(false);
   const { setUser, setTelegramPhoto } = useStore();
   const { t } = useTranslation();
   const isWebAuthnSupported = !!window.PublicKeyCredential;
+
+  // Auth hooks
+  const loginMutation = useLogin();
+  const registerMutation = useRegister();
+  const telegramWidgetAuthMutation = useTelegramWidgetAuth();
+  const telegramWebAppAuthMutation = useTelegramWebAppAuth();
+  const { refetch: refetchCurrentUser } = useCurrentUser();
+
+  // Passkey hooks
+  const passkeyAuthOptionsMutation = usePasskeyAuthOptions();
+  const passkeyAuthMutation = usePasskeyAuth();
+
+  // Password reset hooks
+  const resetPasswordRequestMutation = useResetPasswordRequest();
+  const resetPasswordWithTokenMutation = useResetPasswordWithToken();
+  const { data: resetTokenValidation, isLoading: isVerifyingToken } = useVerifyResetToken(resetToken);
   const { telegramWebApp } = useTelegramWebApp();
   const autoAuthTriggeredRef = useRef(false);
   const autoAuthAttemptKey = 'tg_webapp_auto_auth_attempted';
@@ -70,38 +96,27 @@ export default function Login() {
     void handleTelegramWebAppAuth();
   }, [hasTelegramWebAppAutoAuth, telegramWebApp?.initData]);
 
+  // Check for reset token in URL or cookie on mount
   useEffect(() => {
-    const checkResetToken = async () => {
-      const urlToken = parseAndSaveResetToken();
-      const token = urlToken || getResetTokenCookie();
-
-      if (!token) return;
-
-      setVerifyingToken(true);
+    const urlToken = parseAndSaveResetToken();
+    const token = urlToken || getResetTokenCookie();
+    if (token) {
       setResetToken(token);
-
-      try {
-        const response = await userApi.verifyResetToken(token);
-        const msg = response.data?.data?.[0]?.msg || response.data?.data?.msg;
-
-        if (msg === 'Successful') {
-          setShowNewPasswordForm(true);
-        } else {
-          notifications.show({ title: t('common.error'), message: t('auth.invalidResetToken'), color: 'red' });
-          removeResetTokenCookie();
-          setResetToken(null);
-        }
-      } catch {
-        notifications.show({ title: t('common.error'), message: t('auth.invalidResetToken'), color: 'red' });
-        removeResetTokenCookie();
-        setResetToken(null);
-      } finally {
-        setVerifyingToken(false);
-      }
-    };
-
-    checkResetToken();
+    }
   }, []);
+
+  // Handle reset token validation result
+  useEffect(() => {
+    if (!resetToken || isVerifyingToken) return;
+
+    if (resetTokenValidation?.isValid) {
+      setShowNewPasswordForm(true);
+    } else if (resetTokenValidation) {
+      notifications.show({ title: t('common.error'), message: t('auth.invalidResetToken'), color: 'red' });
+      removeResetTokenCookie();
+      setResetToken(null);
+    }
+  }, [resetToken, resetTokenValidation, isVerifyingToken, t]);
 
   const handleNewPasswordSubmit = async () => {
     if (!newPasswordData.password || !newPasswordData.confirmPassword) {
@@ -121,14 +136,8 @@ export default function Login() {
 
     setResetLoading(true);
     try {
-      const response = await userApi.resetPasswordWithToken(resetToken, newPasswordData.password);
-      const msg = response.data?.data?.[0]?.msg || response.data?.data?.msg;
-
-      if (msg === 'Password reset successful') {
-        notifications.show({ title: t('common.success'), message: t('auth.passwordResetSuccess'), color: 'green' });
-      } else {
-        notifications.show({ title: t('common.error'), message: t('auth.invalidResetToken'), color: 'red' });
-      }
+      await resetPasswordWithTokenMutation.mutateAsync({ token: resetToken, password: newPasswordData.password });
+      notifications.show({ title: t('common.success'), message: t('auth.passwordResetSuccess'), color: 'green' });
     } catch {
       notifications.show({ title: t('common.error'), message: t('auth.invalidResetToken'), color: 'red' });
     } finally {
@@ -148,7 +157,11 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const result = await auth.login(formData.login, formData.password, otpTokenParam);
+      const result = await loginMutation.mutateAsync({
+        login: formData.login,
+        password: formData.password,
+        otp_token: otpTokenParam,
+      });
 
       if (result.otpRequired) {
         setShowOtp(true);
@@ -156,10 +169,10 @@ export default function Login() {
         return;
       }
 
-      const userResponse = await auth.getCurrentUser();
-      const responseData = userResponse.data.data;
-      const userData = Array.isArray(responseData) ? responseData[0] : responseData;
-      setUser(userData);
+      const { data: userData } = await refetchCurrentUser();
+      if (userData) {
+        setUser(userData);
+      }
       setShowOtp(false);
       setOtpToken('');
       notifications.show({ title: t('common.success'), message: t('auth.loginSuccess'), color: 'green' });
@@ -196,7 +209,7 @@ export default function Login() {
 
     setLoading(true);
     try {
-      await auth.register(formData.login, formData.password);
+      await registerMutation.mutateAsync({ login: formData.login, password: formData.password });
       notifications.show({ title: t('common.success'), message: t('auth.registerSuccess'), color: 'green' });
       setMode('login');
       setFormData({ ...formData, confirmPassword: '' });
@@ -219,11 +232,11 @@ export default function Login() {
   const handleTelegramWidgetAuth = async (telegramUser: TelegramUser) => {
     setLoading(true);
     try {
-      await auth.telegramWidgetAuth(telegramUser);
-      const userResponse = await auth.getCurrentUser();
-      const responseData = userResponse.data.data;
-      const userData = Array.isArray(responseData) ? responseData[0] : responseData;
-      setUser(userData);
+      await telegramWidgetAuthMutation.mutateAsync(telegramUser);
+      const { data: userData } = await refetchCurrentUser();
+      if (userData) {
+        setUser(userData);
+      }
 
       if (telegramUser.photo_url) {
         setTelegramPhoto(telegramUser.photo_url);
@@ -247,18 +260,18 @@ export default function Login() {
     setLoading(true);
     try {
       const profile = config.TELEGRAM_WEBAPP_PROFILE || '';
-      const authResponse = await auth.telegramWebAppAuth(telegramWebApp.initData, profile);
-      const sessionId = authResponse.data?.session_id || authResponse.data?.id;
-      if (!sessionId) {
+
+      const result = await telegramWebAppAuthMutation.mutateAsync({ initData: telegramWebApp.initData, profile });
+      if (!result.sessionId) {
         notifications.show({ title: t('common.error'), message: t('auth.telegramAuthError'), color: 'red' });
         setShowLoginForm(true);
         return;
       }
 
-      const userResponse = await auth.getCurrentUser();
-      const responseData = userResponse.data.data;
-      const userData = Array.isArray(responseData) ? responseData[0] : responseData;
-      setUser(userData);
+      const { data: userData } = await refetchCurrentUser();
+      if (userData) {
+        setUser(userData);
+      }
 
       if (telegramWebApp.initDataUnsafe?.user?.photo_url) {
         setTelegramPhoto(telegramWebApp.initDataUnsafe.user.photo_url);
@@ -281,29 +294,22 @@ export default function Login() {
 
     setResetLoading(true);
     try {
-      const loginResponse = await userApi.resetPassword({ login: formData.login_or_email });
-      const loginMsg = loginResponse.data?.data?.[0]?.msg || loginResponse.data?.data?.msg;
-      if (loginMsg === 'Successful') {
-        notifications.show({ title: t('common.success'), message: t('auth.resetSuccess'), color: 'green' });
-        setShowResetPassword(false);
-        setResetLoading(false);
-        return;
-      }
-
-      const emailResponse = await userApi.resetPassword({ email: formData.login_or_email });
-      const emailMsg = emailResponse.data?.data?.[0]?.msg || emailResponse.data?.data?.msg;
-      if (emailMsg === 'Successful') {
-        notifications.show({ title: t('common.success'), message: t('auth.resetSuccess'), color: 'green' });
-        setShowResetPassword(false);
-        setResetLoading(false);
-        return;
-      }
-
-      notifications.show({ title: t('common.error'), message: t('auth.resetNotFound'), color: 'red' });
+      // Try by login first
+      await resetPasswordRequestMutation.mutateAsync({ login: formData.login_or_email });
+      notifications.show({ title: t('common.success'), message: t('auth.resetSuccess'), color: 'green' });
+      setShowResetPassword(false);
     } catch {
-      notifications.show({ title: t('common.error'), message: t('auth.resetNotFound'), color: 'red' });
+      // If login fails, try by email
+      try {
+        await resetPasswordRequestMutation.mutateAsync({ email: formData.login_or_email });
+        notifications.show({ title: t('common.success'), message: t('auth.resetSuccess'), color: 'green' });
+        setShowResetPassword(false);
+      } catch {
+        notifications.show({ title: t('common.error'), message: t('auth.resetNotFound'), color: 'red' });
+      }
+    } finally {
+      setResetLoading(false);
     }
-    setResetLoading(false);
   };
 
   const handlePasskeyAuth = async () => {
@@ -314,9 +320,7 @@ export default function Login() {
 
     setPasskeyLoading(true);
     try {
-      const optionsResponse = await passkeyApi.authOptionsPublic();
-      const optionsData = optionsResponse.data.data;
-      const options = Array.isArray(optionsData) ? optionsData[0] : optionsData;
+      const options = await passkeyAuthOptionsMutation.mutateAsync();
       const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
         challenge: base64UrlToArrayBuffer(options.challenge),
         timeout: options.timeout,
@@ -332,7 +336,7 @@ export default function Login() {
       }
 
       const response = credential.response as AuthenticatorAssertionResponse;
-      const authResponse = await passkeyApi.authPublic({
+      await passkeyAuthMutation.mutateAsync({
         credential_id: arrayBufferToBase64Url(credential.rawId),
         rawId: arrayBufferToBase64Url(credential.rawId),
         response: {
@@ -342,16 +346,11 @@ export default function Login() {
           userHandle: response.userHandle ? arrayBufferToBase64Url(response.userHandle) : undefined,
         },
       });
-      const authData = authResponse.data.data;
-      const sessionData = Array.isArray(authData) ? authData[0] : authData;
-      if (sessionData?.id) {
-        setCookie(sessionData.id);
-      }
 
-      const userResponse = await auth.getCurrentUser();
-      const responseData = userResponse.data.data;
-      const userData = Array.isArray(responseData) ? responseData[0] : responseData;
-      setUser(userData);
+      const { data: userData } = await refetchCurrentUser();
+      if (userData) {
+        setUser(userData);
+      }
 
       notifications.show({ title: t('common.success'), message: t('auth.loginSuccess'), color: 'green' });
     } catch {
@@ -642,7 +641,7 @@ export default function Login() {
         </Stack>
       </Modal>
 
-      {verifyingToken && (
+      {isVerifyingToken && (
         <Modal opened={true} onClose={() => {}} withCloseButton={false} centered>
           <Stack align="center" gap="md">
             <Loader />

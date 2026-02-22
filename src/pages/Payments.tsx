@@ -1,60 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, Text, Stack, Group, Badge, Button, Loader, Center, Paper, Title, Table, Pagination, LoadingOverlay } from '@mantine/core';
 import { IconCreditCard, IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api } from '../api/client';
 import { useStore } from '../store/useStore';
 import PayModal from '../components/PayModal';
+import { usePayments } from '../api/hooks';
+import { GetUserPaymentsCommand } from '@bkeenke/shm-contract';
 
-interface Payment {
-  id: number;
-  date: string;
-  money: number;
-  pay_system_id?: string;
-}
+type Payment = GetUserPaymentsCommand.Response[number];
 
 export default function Payments() {
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [tableLoading, setTableLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
   const [payModalOpen, setPayModalOpen] = useState(false);
   const perPage = 10;
   const { user } = useStore();
   const { t, i18n } = useTranslation();
 
-  const fetchPayments = async (p: number, isInitial = false) => {
-    if (isInitial) setInitialLoading(true);
-    else setTableLoading(true);
-    try {
-      const offset = (p - 1) * perPage;
-      const response = await api.get('/user/pay', { params: { limit: perPage, offset } });
-      setPayments(response.data.data || []);
-      if (typeof response.data.items === 'number') {
-        setTotalItems(response.data.items);
-      }
-    } catch (error) {
-      console.error('Failed to fetch payments:', error);
-    } finally {
-      setInitialLoading(false);
-      setTableLoading(false);
-    }
-  };
+  const offset = (page - 1) * perPage;
+  const { data, isLoading, isFetching } = usePayments({ limit: perPage, offset });
 
-  useEffect(() => {
-    fetchPayments(1, true);
-  }, []);
-
-  useEffect(() => {
-    if (!initialLoading) {
-      fetchPayments(page);
-    }
-  }, [page]);
-
+  const payments = (data?.payments ?? []) as Payment[];
+  const totalItems = data?.totalItems ?? 0;
   const totalPages = Math.ceil(totalItems / perPage);
 
-  if (initialLoading) {
+  if (isLoading) {
     return (
       <Center h={300}>
         <Loader size="lg" />
@@ -96,7 +65,7 @@ export default function Payments() {
       ) : (
         <>
           <Paper withBorder radius="md" style={{ overflow: 'hidden', position: 'relative' }}>
-            <LoadingOverlay visible={tableLoading} overlayProps={{ blur: 1 }} />
+            <LoadingOverlay visible={isFetching && !isLoading} overlayProps={{ blur: 1 }} />
             <Table.ScrollContainer minWidth={500}>
               <Table striped highlightOnHover>
                 <Table.Thead>

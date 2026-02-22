@@ -3,12 +3,12 @@ import { Card, Text, Stack, Group, Button, Modal, Divider, PasswordInput } from 
 import { IconShieldLock, IconLock } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
-import { userApi } from '../api/client';
+import { useChangePassword } from '../../api/hooks/user/user.hooks';
 import PasskeySettings from './PasskeySettings';
 import OtpSettings from './OtpSettings';
 import PasswordAuthSettings from './PasswordAuthSettings';
-import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
-import { config } from '../config';
+import { useTelegramWebApp } from '../../hooks/useTelegramWebApp';
+import { config } from '../../config';
 
 const otpEnabled = config.OTP_ENABLE === 'true';
 const passkeyEnabled = config.PASSKEY_ENABLE === 'true';
@@ -18,32 +18,36 @@ export default function SecuritySettings() {
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const { isInsideTelegramWebApp } = useTelegramWebApp();
+  const changePassword = useChangePassword();
 
-  const handleChangePassword = async () => {
+  const handleChangePassword = () => {
     if (!newPassword) {
       notifications.show({
-        title: t('common.error'),
-        message: t('profile.enterNewPassword'),
+        title: String(t('common.error')),
+        message: String(t('profile.enterNewPassword')),
         color: 'red',
       });
       return;
     }
-    try {
-      await userApi.changePassword(newPassword);
-      setPasswordModalOpen(false);
-      setNewPassword('');
-      notifications.show({
-        title: t('common.success'),
-        message: t('profile.passwordChanged'),
-        color: 'green',
-      });
-    } catch {
-      notifications.show({
-        title: t('common.error'),
-        message: t('profile.passwordChangeError'),
-        color: 'red',
-      });
-    }
+
+    changePassword.mutate(newPassword, {
+      onSuccess: () => {
+        setPasswordModalOpen(false);
+        setNewPassword('');
+        notifications.show({
+          title: String(t('common.success')),
+          message: String(t('profile.passwordChanged')),
+          color: 'green',
+        });
+      },
+      onError: () => {
+        notifications.show({
+          title: String(t('common.error')),
+          message: String(t('profile.passwordChangeError')),
+          color: 'red',
+        });
+      },
+    });
   };
 
   const hasTelegramWidget = !isInsideTelegramWebApp;
@@ -113,7 +117,7 @@ export default function SecuritySettings() {
             <Button variant="light" onClick={() => { setPasswordModalOpen(false); setNewPassword(''); }}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleChangePassword}>
+            <Button onClick={handleChangePassword} loading={changePassword.isPending}>
               {t('common.save')}
             </Button>
           </Group>

@@ -3,7 +3,7 @@ import { Modal, Stack, Text, TextInput, Button, Group } from '@mantine/core';
 import { IconShieldLock } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { notifications } from '@mantine/notifications';
-import { otpApi } from '../api/client';
+import { useOtpVerify } from '../../api/hooks/otp/otp.hooks';
 
 interface OtpVerifyModalProps {
   opened: boolean;
@@ -14,32 +14,31 @@ interface OtpVerifyModalProps {
 export default function OtpVerifyModal({ opened, onClose, onVerified }: OtpVerifyModalProps) {
   const { t } = useTranslation();
   const [token, setToken] = useState('');
-  const [verifying, setVerifying] = useState(false);
+  const otpVerify = useOtpVerify();
 
-  const handleVerify = async () => {
+  const handleVerify = () => {
     if (!token) {
       notifications.show({
-        title: t('common.error'),
-        message: t('otp.enterValidCode'),
+        title: String(t('common.error')),
+        message: String(t('otp.enterValidCode')),
         color: 'red',
       });
       return;
     }
 
-    setVerifying(true);
-    try {
-      await otpApi.verify(token);
-      onVerified();
-      setToken('');
-    } catch {
-      notifications.show({
-        title: t('common.error'),
-        message: t('otp.invalidCode'),
-        color: 'red',
-      });
-    } finally {
-      setVerifying(false);
-    }
+    otpVerify.mutate(token, {
+      onSuccess: () => {
+        onVerified();
+        setToken('');
+      },
+      onError: () => {
+        notifications.show({
+          title: String(t('common.error')),
+          message: String(t('otp.invalidCode')),
+          color: 'red',
+        });
+      },
+    });
   };
 
   const handleClose = () => {
@@ -86,7 +85,7 @@ export default function OtpVerifyModal({ opened, onClose, onVerified }: OtpVerif
           </Button>
           <Button
             onClick={handleVerify}
-            loading={verifying}
+            loading={otpVerify.isPending}
             disabled={!token}
           >
             {t('otp.verify')}

@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, Text, Stack, Group, Button, Badge, Alert, Divider } from '@mantine/core';
 import { IconLock, IconLockOpen, IconAlertCircle } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
-import { passwordAuthApi, PasswordAuthStatus } from '../api/client';
-import ConfirmModal from './ConfirmModal';
+import { usePasswordAuthStatus, useEnablePasswordAuth, useDisablePasswordAuth } from '../../api/hooks/pass-auth/pass-auth.hooks';
+import ConfirmModal from '../ConfirmModal';
 
 interface PasswordAuthSettingsProps {
   embedded?: boolean;
@@ -12,70 +12,52 @@ interface PasswordAuthSettingsProps {
 
 export default function PasswordAuthSettings({ embedded = false }: PasswordAuthSettingsProps) {
   const { t } = useTranslation();
-  const [status, setStatus] = useState<PasswordAuthStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [disabling, setDisabling] = useState(false);
-  const [enabling, setEnabling] = useState(false);
+
+  // Data hooks
+  const { data: status, isLoading: loading } = usePasswordAuthStatus();
+  const enablePasswordAuth = useEnablePasswordAuth();
+  const disablePasswordAuth = useDisablePasswordAuth();
+
+  // UI state
   const [confirmDisableOpen, setConfirmDisableOpen] = useState(false);
 
-  const loadStatus = async () => {
-    try {
-      const response = await passwordAuthApi.status();
-      const data = response.data.data;
-      const statusData = Array.isArray(data) ? data[0] : data;
-      setStatus(statusData);
-    } catch {
-      setStatus(null);
-    } finally {
-      setLoading(false);
-    }
+  const handleDisable = () => {
+    disablePasswordAuth.mutate(undefined, {
+      onSuccess: () => {
+        notifications.show({
+          title: String(t('common.success')),
+          message: String(t('passwordAuth.disableSuccess')),
+          color: 'green',
+        });
+        setConfirmDisableOpen(false);
+      },
+      onError: () => {
+        notifications.show({
+          title: String(t('common.error')),
+          message: String(t('passwordAuth.disableError')),
+          color: 'red',
+        });
+      },
+    });
   };
 
-  useEffect(() => {
-    loadStatus();
-  }, []);
-
-  const handleDisable = async () => {
-    setDisabling(true);
-    try {
-      await passwordAuthApi.disable();
-      notifications.show({
-        title: t('common.success'),
-        message: t('passwordAuth.disableSuccess'),
-        color: 'green',
-      });
-      setConfirmDisableOpen(false);
-      loadStatus();
-    } catch {
-      notifications.show({
-        title: t('common.error'),
-        message: t('passwordAuth.disableError'),
-        color: 'red',
-      });
-    } finally {
-      setDisabling(false);
-    }
-  };
-
-  const handleEnable = async () => {
-    setEnabling(true);
-    try {
-      await passwordAuthApi.enable();
-      notifications.show({
-        title: t('common.success'),
-        message: t('passwordAuth.enableSuccess'),
-        color: 'green',
-      });
-      loadStatus();
-    } catch {
-      notifications.show({
-        title: t('common.error'),
-        message: t('passwordAuth.enableError'),
-        color: 'red',
-      });
-    } finally {
-      setEnabling(false);
-    }
+  const handleEnable = () => {
+    enablePasswordAuth.mutate(undefined, {
+      onSuccess: () => {
+        notifications.show({
+          title: String(t('common.success')),
+          message: String(t('passwordAuth.enableSuccess')),
+          color: 'green',
+        });
+      },
+      onError: () => {
+        notifications.show({
+          title: String(t('common.error')),
+          message: String(t('passwordAuth.enableError')),
+          color: 'red',
+        });
+      },
+    });
   };
 
   if (loading || !status) {
@@ -114,7 +96,7 @@ export default function PasswordAuthSettings({ embedded = false }: PasswordAuthS
             color="green"
             leftSection={<IconLockOpen size={16} />}
             onClick={handleEnable}
-            loading={enabling}
+            loading={enablePasswordAuth.isPending}
           >
             {t('passwordAuth.enable')}
           </Button>
@@ -153,7 +135,7 @@ export default function PasswordAuthSettings({ embedded = false }: PasswordAuthS
         message={t('passwordAuth.disableConfirm')}
         confirmLabel={t('passwordAuth.disable')}
         confirmColor="red"
-        loading={disabling}
+        loading={disablePasswordAuth.isPending}
       />
     </>
   );
