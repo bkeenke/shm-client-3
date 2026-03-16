@@ -12,23 +12,12 @@ if [ ! -z "$PROXY_URL" ]; then
 fi
 
 if [ ! -z "$SHM_BASE_PATH" ] && [ "$SHM_BASE_PATH" != "/" ]; then
-    mkdir -p "/app${SHM_BASE_PATH}"
-    mv /app/assets "/app${SHM_BASE_PATH}/" 2>/dev/null || true
-    mv /app/index.html "/app${SHM_BASE_PATH}/" 2>/dev/null || true
-    mv /app/favicon.* "/app${SHM_BASE_PATH}/" 2>/dev/null || true
-    mv /app/404.html /app/index.html 2>/dev/null || true
+    sed -i "s|#BASE_LOCATION|location $SHM_BASE_PATH/ {\n        alias /app/;\n        try_files \$uri \$uri/ /index.html;\n    }|" /etc/nginx/conf.d/default.conf
     sed -i "s|href=\"/\"|href=\"${SHM_BASE_PATH}/\"|" /app/index.html
-
-    sed -i "s|location / {|location $SHM_BASE_PATH/ {\n        alias /app${SHM_BASE_PATH}/;\n        try_files \$uri \$uri/ ${SHM_BASE_PATH}/index.html;\n    }\n\n    location / {|" /etc/nginx/conf.d/default.conf
     sed -i "s|#proxy_cookie_path;|proxy_cookie_path / $SHM_BASE_PATH;|" /etc/nginx/conf.d/default.conf
 fi
 
-CONFIG_PATH="/app"
-if [ ! -z "$SHM_BASE_PATH" ] && [ "$SHM_BASE_PATH" != "/" ]; then
-    CONFIG_PATH="/app${SHM_BASE_PATH}"
-fi
-
-cat > "${CONFIG_PATH}/config.js" << EOF
+cat > "/app/config.js" << EOF
 window.__APP_CONFIG__ = {
   APP_NAME: "${APP_NAME:-SHM Client}",
   TELEGRAM_BOT_NAME: "${TELEGRAM_BOT_NAME:-}",

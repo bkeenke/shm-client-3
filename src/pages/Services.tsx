@@ -825,7 +825,7 @@ export default function Services() {
       <Group justify="space-between">
         <Title order={2}>{t('services.title')}</Title>
         <Group>
-          <Button leftSection={<IconPlus size={16} />} onClick={ config.EMAIL_VERIFY_REQUIRED && !userEmailVerified ? () => setConfirmEmailNotVerified(true) : openOrderModal}>
+          <Button leftSection={<IconPlus size={16} />} onClick={ config.EMAIL_VERIFY_REQUIRED === "true" && !userEmailVerified ? () => setConfirmEmailNotVerified(true) : openOrderModal}>
             {t('services.orderService')}
           </Button>
           <Button leftSection={<IconRefresh size={16} />} variant="light" onClick={() => fetchServices()}>
@@ -839,7 +839,7 @@ export default function Services() {
           <Center>
             <Stack align="center" gap="md">
               <Text c="dimmed">{t('services.noServices')}</Text>
-              <Button leftSection={<IconPlus size={16} />} onClick={ config.EMAIL_VERIFY_REQUIRED && !userEmailVerified ? () => setConfirmEmailNotVerified(true) : openOrderModal}>
+              <Button leftSection={<IconPlus size={16} />} onClick={ config.EMAIL_VERIFY_REQUIRED === "true"  && !userEmailVerified ? () => setConfirmEmailNotVerified(true) : openOrderModal}>
                 {t('services.orderService')}
               </Button>
             </Stack>
