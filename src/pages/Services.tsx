@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Text, Stack, Group, Badge, Button, Modal, ActionIcon, Loader, Center, Paper, Title, Tabs, Code, Tooltip, Accordion, Box, Select, NumberInput, Pagination } from '@mantine/core';
-import { IconQrcode, IconCopy, IconCheck, IconDownload, IconRefresh, IconTrash, IconPlus, IconPlayerStop, IconExchange, IconCreditCard, IconWallet } from '@tabler/icons-react';
+import { IconQrcode, IconCopy, IconCheck, IconDownload, IconRefresh, IconTrash, IconPlus, IconPlayerStop, IconExchange, IconCreditCard, IconWallet, IconDeviceMobileCog } from '@tabler/icons-react';
 import { useDisclosure, useClipboard } from '@mantine/hooks';
 import { useTranslation } from 'react-i18next';
 import { api, servicesApi, userApi } from '../api/client';
@@ -11,6 +11,7 @@ import OrderServiceModal from '../components/OrderServiceModal';
 import ConfirmModal from '../components/ConfirmModal';
 import { config } from '../config';
 import { useStore } from '../store/useStore';
+import { isTelegramWebApp } from '../constants/webapp';
 
 interface ForecastItem {
   name: string;
@@ -259,6 +260,18 @@ function ServiceDetail({ service, onDelete, onChangeTariff }: ServiceDetailProps
     }
   };
 
+  const handleConfigure = () => {
+    const link = subscriptionUrl;
+    if ( link ) {
+      const tgWebApp = window.Telegram?.WebApp;
+      if (tgWebApp && isTelegramWebApp) {
+        tgWebApp.openTelegramLink(link);
+      } else {
+        window.open(link, '_blank');
+      }
+    }
+  };
+
   const category = normalizeCategory(service.service.category);
 
   useEffect(() => {
@@ -410,6 +423,16 @@ function ServiceDetail({ service, onDelete, onChangeTariff }: ServiceDetailProps
                       </ActionIcon>
                     </Tooltip>
                   </Group>
+                  <Button
+                    color="green"
+                    variant="light"
+                    leftSection={<IconDeviceMobileCog size={16} />}
+                    onClick={() => handleConfigure()}
+                    mt="md"
+                    fullWidth
+                  >
+                    {t('services.DeviceConfig')}
+                  </Button>
                 </Paper>
               )}
 
@@ -419,6 +442,7 @@ function ServiceDetail({ service, onDelete, onChangeTariff }: ServiceDetailProps
                     leftSection={<IconQrcode size={16} />}
                     variant="light"
                     onClick={() => setQrModalOpen(true)}
+                    fullWidth={!isVpn}
                   >
                     {t('services.qrCode')}
                   </Button>

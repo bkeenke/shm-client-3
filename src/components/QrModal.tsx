@@ -68,28 +68,7 @@ export default function QrModal({ opened, onClose, data, title, filename, onDown
           </Center>
         )}
 
-        <Text size="xs" c="dimmed" ta="center" style={{ wordBreak: 'break-all', maxWidth: 300 }}>
-          {data.length > 100 ? data.substring(0, 100) + '...' : data}
-        </Text>
-
         <Group>
-          <Tooltip label={clipboard.copied ? t('common.copied') : t('common.copy')}>
-            <Button
-              variant="light"
-              leftSection={clipboard.copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-              color={clipboard.copied ? 'teal' : 'blue'}
-              onClick={() => clipboard.copy(data)}
-            >
-              {clipboard.copied ? t('common.copied') : t('common.copy')}
-            </Button>
-          </Tooltip>
-
-          <Tooltip label={t('services.downloadQr')}>
-            <ActionIcon variant="light" size="lg" onClick={handleDownloadQr} disabled={isDataTooLong}>
-              <IconDownload size={18} />
-            </ActionIcon>
-          </Tooltip>
-
           {onDownload && (
             <Button
               variant="light"
