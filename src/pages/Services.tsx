@@ -265,7 +265,7 @@ function ServiceDetail({ service, onDelete, onChangeTariff }: ServiceDetailProps
     if ( link ) {
       const tgWebApp = window.Telegram?.WebApp;
       if (tgWebApp && isTelegramWebApp) {
-        tgWebApp.openTelegramLink(link);
+        tgWebApp.openLink(link);
       } else {
         window.open(link, '_blank');
       }
