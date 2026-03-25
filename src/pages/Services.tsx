@@ -446,7 +446,7 @@ function ServiceDetail({ service, onDelete, onChangeTariff }: ServiceDetailProps
             <Stack gap="md">
               {isProxy && subscriptionUrl && (
                 <Paper withBorder p="md" radius="md">
-                  <Text size="sm" fw={500} mb="xs">{t('services.subscriptionLink')}</Text>
+                  { config.SHOW_PROXY_SUB_LINK && ( <Text size="sm" fw={500} mb="xs">{t('services.subscriptionLink')}</Text> ) }
                   <Group gap="xs">
                     <Code style={{ flex: 1, wordBreak: 'break-all' }}>{subscriptionUrl}</Code>
                     <Tooltip label={clipboard.copied ? t('common.copied') : t('common.copy')}>
@@ -466,13 +466,15 @@ function ServiceDetail({ service, onDelete, onChangeTariff }: ServiceDetailProps
                         </Timeline.Item>
                         <Timeline.Item bullet={<IconDeviceMobileCog size={12} />} title={t('services.stepConfigureApp') + ' ' + (urlSchema ? t('services.deviceConfig') : t('services.openSubLink'))}>
                           <Group gap="xs" mt="xs">
-                            <Button
-                              leftSection={<IconQrcode size={16} />}
-                              variant="light"
-                              onClick={() => setQrModalOpen(true)}
-                            >
-                              {t('services.qrCode')}
+                            { config.SHOW_PROXY_QR && (
+                              <Button
+                                leftSection={<IconQrcode size={16} />}
+                                variant="light"
+                                onClick={() => setQrModalOpen(true)}
+                              >
+                                {t('services.qrCode')}
                             </Button>
+                            )}
                             <Button
                               component="a"
                               color="green"
@@ -487,13 +489,15 @@ function ServiceDetail({ service, onDelete, onChangeTariff }: ServiceDetailProps
                       </Timeline>
                     ) : (
                     <Group gap="xs" mt="xs">
-                      <Button
-                        leftSection={<IconQrcode size={16} />}
-                        variant="light"
-                        onClick={() => setQrModalOpen(true)}
-                      >
-                        {t('services.qrCode')}
-                      </Button>
+                      {config.SHOW_PROXY_QR && (
+                        <Button
+                          leftSection={<IconQrcode size={16} />}
+                          variant="light"
+                          onClick={() => setQrModalOpen(true)}
+                        >
+                          {t('services.qrCode')}
+                        </Button>
+                      )}
                       <Button
                         component="a"
                         color="green"

@@ -43,6 +43,7 @@ services:
 | `SHM_BASE_PATH` | Базовый путь (например `/cabinet`) | `/` |
 | `APP_NAME` | Название приложения | `SHM Client` |
 | `APP_DESCRIPTION` | Описание приложения | Powerful and flexible client for SHM |
+| `LOGO_URL` | Ссылка на логитип приложения | локальный favicon.jpg |
 | `TELEGRAM_BOT_NAME` | Username Telegram бота (без @) s| - |
 | `TELEGRAM_BOT_AUTH_ENABLE` | Включить авторизацию через Telegram виджет | `false` |
 | `TELEGRAM_BOT_AUTH_PROFILE` | Название бота (профиля) в SHM | `telegram_bot` |
@@ -58,6 +59,8 @@ services:
 | `PROXY_CATEGORY` | Категория прокси чтобы показать ссылку на подписку (vpn-remna,vpn-trial) | - |
 | `PROXY_CATEGORY_TITLE` | Название категории | VPN Подписка |
 | `PROXY_STORAGE_PREFIX` | префикс для категории proxy в хранилище, например 'vpm_remna_' | 'vpm_mrzb_' |
+| `SHOW_PROXY_SUB_LINK` | Показывать ссылку на подписку для категории proxy | `true`|
+| `SHOW_PROXY_QR` | Показывать кнопку `QR` на ссылку подписки для категории proxy | `true`|
 | `VPN_CATEGORY` | Категория VPN чтобы показать QR или возможность скачать файл конфигурации (vpn-wg,vpn-awg) | - |
 | `VPN_CATEGORY_TITLE` | Название категории | VPN |
 | `VPN_STORAGE_PREFIX` | Префикс для категории vpn в хранилище например 'wg_key_' | 'vpn' |
@@ -92,11 +95,11 @@ services:
 | `PROXY_ANDROID_APP_NAME` | Название кнопки для категории PROXY для Android | `Скачать` |
 | `APPLE_TV_APP_NAME` | Название кнопки для категории PROXY для Apple TV | `Скачать` |
 | `ANDROID_TV_APP_NAME` | Название кнопки для категории PROXY для Android TV | `Скачать` |
-| `WINDOWS_PROXY_URL_SCHEMA` | URL-схема для открытия подписки на Windows (happ://add/) | `` |
-| `LINUX_PROXY_URL_SCHEMA` | URL-схема для открытия подписки на Linux (happ://add/) | `` |
-| `MAC_PROXY_URL_SCHEMA` | URL-схема для открытия подписки на macOS (happ://add/) | `` |
-| `IOS_PROXY_URL_SCHEMA` | URL-схема для открытия подписки на iOS (happ://add/) | `` |
-| `ANDROID_PROXY_URL_SCHEMA` | URL-схема для открытия подписки на Android (happ://add/) | `` |
+| `WINDOWS_PROXY_URL_SCHEMA` | URL-схема для открытия подписки на Windows (`happ://add/`) | `` |
+| `LINUX_PROXY_URL_SCHEMA` | URL-схема для открытия подписки на Linux (`happ://add/`) | `` |
+| `MAC_PROXY_URL_SCHEMA` | URL-схема для открытия подписки на macOS (`happ://add/`) | `` |
+| `IOS_PROXY_URL_SCHEMA` | URL-схема для открытия подписки на iOS (`happ://add/`) | `` |
+| `ANDROID_PROXY_URL_SCHEMA` | URL-схема для открытия подписки на Android (`happ://add/`) | `` |
 
 
 ### Telegram Widget

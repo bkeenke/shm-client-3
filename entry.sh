@@ -17,12 +17,19 @@ if [ ! -z "$SHM_BASE_PATH" ] && [ "$SHM_BASE_PATH" != "/" ]; then
     sed -i "s|#proxy_cookie_path;|proxy_cookie_path / $SHM_BASE_PATH;|" /etc/nginx/conf.d/default.conf
 fi
 
+if [ ! -z "$LOGO_URL" ]; then
+    sed -i "s|<link rel=\"icon\" type=\"image/svg+xml\" href=\".*\" />|<link rel=\"icon\" type=\"image/svg+xml\" href=\"${LOGO_URL}\" />|" /app/index.html
+    sed -i "s|<meta property=\"og:image\" content=\".*\" />|<meta property=\"og:image\" content=\"${LOGO_URL}\" />|" /app/index.html
+fi
+
 if [ ! -z "$APP_NAME" ]; then
     sed -i "s|<title>.*</title>|<title>${APP_NAME}</title>|" /app/index.html
+    sed -i "s|<meta property=\"og:title\" content=\".*\" />|<meta property=\"og:title\" content=\"${APP_NAME}\" />|" /app/index.html
 fi
 
 if [ ! -z "$APP_DESCRIPTION" ]; then
     sed -i "s|<meta name=\"description\" content=\".*\" />|<meta name=\"description\" content=\"${APP_DESCRIPTION}\" />|" /app/index.html
+    sed -i "s|<meta property=\"og:description\" content=\".*\" />|<meta property=\"og:description\" content=\"${APP_DESCRIPTION}\" />|" /app/index.html
 fi
 
 cat > "/app/config.js" << EOF
