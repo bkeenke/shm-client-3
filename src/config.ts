@@ -60,6 +60,7 @@ interface AppConfig {
   IOS_PROXY_URL_SCHEMA: string;
   ANDROID_PROXY_URL_SCHEMA: string;
   CAPTCHA_ENABLED: string;
+  ORDER_SORTING: string;
 }
 
 declare global {
@@ -97,6 +98,7 @@ function getConfig(): AppConfig {
     VPN_CATEGORY_TITLE: runtimeConfig?.VPN_CATEGORY_TITLE || import.meta.env.VITE_VPN_CATEGORY_TITLE|| '',
     VPN_STORAGE_PREFIX: runtimeConfig?.VPN_STORAGE_PREFIX || import.meta.env.VITE_VPN_STORAGE_PREFIX || '',
     VISIBLE_CATEGORIES: runtimeConfig?.VISIBLE_CATEGORIES || import.meta.env.VITE_VISIBLE_CATEGORIES || '',
+    ORDER_SORTING: runtimeConfig?.ORDER_SORTING || import.meta.env.VITE_ORDER_SORTING || 'cost_asc',
     EMAIL_REQUIRED: runtimeConfig?.EMAIL_REQUIRED || import.meta.env.VITE_EMAIL_REQUIRED || 'true',
     EMAIL_VERIFY_REQUIRED: runtimeConfig?.EMAIL_VERIFY_REQUIRED || import.meta.env.VITE_EMAIL_VERIFY_REQUIRED || 'false',
     ALLOW_SERVICE_BLOCKED: runtimeConfig?.ALLOW_SERVICE_BLOCKED || import.meta.env.VITE_ALLOW_SERVICE_BLOCKED || 'true',
@@ -132,8 +134,8 @@ function getConfig(): AppConfig {
     MAC_PROXY_URL_SCHEMA: runtimeConfig?.MAC_PROXY_URL_SCHEMA || import.meta.env.VITE_MAC_PROXY_URL_SCHEMA || '',
     IOS_PROXY_URL_SCHEMA: runtimeConfig?.IOS_PROXY_URL_SCHEMA || import.meta.env.VITE_IOS_PROXY_URL_SCHEMA || '',
     ANDROID_PROXY_URL_SCHEMA: runtimeConfig?.ANDROID_PROXY_URL_SCHEMA || import.meta.env.VITE_ANDROID_PROXY_URL_SCHEMA || '',
-    CAPTCHA_ENABLED: 'false',
-    // CAPTCHA_ENABLED: runtimeConfig?.CAPTCHA_ENABLED || import.meta.env.VITE_CAPTCHA_ENABLED || 'false',
+    CAPTCHA_ENABLED: runtimeConfig?.CAPTCHA_ENABLED || import.meta.env.VITE_CAPTCHA_ENABLED || 'false',
+
   };
 }
 

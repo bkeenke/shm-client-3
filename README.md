@@ -94,6 +94,7 @@ services:
 | `MAC_PROXY_URL_SCHEMA` | URL-схема для открытия подписки на macOS (`happ://add/`) | `` |
 | `IOS_PROXY_URL_SCHEMA` | URL-схема для открытия подписки на iOS (`happ://add/`) | `` |
 | `ANDROID_PROXY_URL_SCHEMA` | URL-схема для открытия подписки на Android (`happ://add/`) | `` |
+| `ORDER_SORTING` | Сортировка услуг при покупке (cost_asc, cost_desc, name_asc, name_desc)| cost_asc |
 
 
 ### Telegram Widget
